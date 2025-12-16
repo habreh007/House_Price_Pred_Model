@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.vscode/
+.ipynb_checkpoints/
+*.log
+.DS_Store
+.idea/
+house_price_model.pkl
+New folder/
