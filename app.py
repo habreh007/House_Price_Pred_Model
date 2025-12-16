@@ -94,7 +94,11 @@ st.markdown("---")
 st.markdown(
 	"""
 	<div style='text-align: center; color: #1d4ed8; font-weight: 600; font-size: 16px;'>
+<<<<<<< HEAD
 	Developed by  <b>Habib-ur-Rehman</b> 
+=======
+	Developed by 💙 <b>Habib-ur-Rehman</b> 
+>>>>>>> 944ab571640d66df8ccb8424fc89e4b19a36263c
 	</div>
 	""",
 	unsafe_allow_html=True
