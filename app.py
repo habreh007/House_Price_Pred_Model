@@ -1,105 +1,110 @@
-# ---- imports and setup ----
+# ==============================
+# House Price Prediction App
+# ==============================
+
 import streamlit as st
 import numpy as np
 import pandas as pd
-import pickle
-import time
 import os
+import time
 
-# ---- page configuration ----
+from sklearn.ensemble import RandomForestRegressor
+
+# ---------- Page Config ----------
 st.set_page_config(
 	page_title="House Price Predictor",
 	page_icon="🏠",
-	layout="centered",
-	initial_sidebar_state="expanded"
+	layout="centered"
 )
 
-# ---- custom style ----
+# ---------- Styling ----------
 st.markdown("""
-	<style>
-		.stApp {
-			background-color: #f8faff;
-			color: #1e3a8a;
-		}
-		h1, h2, h3, h4 {
-			color: #1d4ed8;
-		}
-		.stTextInput > div > div > input, .stNumberInput input {
-			border: 1px solid #1d4ed8;
-			border-radius: 8px;
-		}
-		div.stButton > button:first-child {
-			background-color: #1e3a8a;
-			color: white;
-			border-radius: 8px;
-			font-weight: bold;
-			padding: 0.5em 1.5em;
-			transition: all 0.3s ease;
-		}
-		div.stButton > button:first-child:hover {
-			background-color: #3b82f6;
-			transform: scale(1.05);
-		}
-	</style>
+<style>
+.stApp { background-color: #f8faff; }
+h1, h2 { color: #1d4ed8; }
+div.stButton > button {
+	background-color: #1e3a8a;
+	color: white;
+	font-weight: bold;
+	border-radius: 8px;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# ---- load dataset ----
-data_path = os.path.join("data_folder", "california_dataset.csv")
-if os.path.exists(data_path):
-	df = pd.read_csv(data_path)
-	st.sidebar.success("✅ Dataset loaded successfully from 'data_folder'")
-else:
-	st.sidebar.error("⚠️ Dataset file not found in 'data_folder'")
-	df = None
+# ---------- Load Dataset ----------
+DATA_PATH = "data_folder/california_dataset.csv"
 
-# ---- load model ----
-model_path = "house_price_model.pkl"
-with open(model_path, 'rb') as file:
-	model = pickle.load(file)
+if not os.path.exists(DATA_PATH):
+	st.error("❌ Dataset not found in data_folder")
+	st.stop()
 
-# ---- app title ----
-st.title("🏡 House Price Prediction App")
-st.write("Predict California house prices using a trained Random Forest model.")
+@st.cache_data
+def load_data(path):
+	return pd.read_csv(path)
+
+df = load_data(DATA_PATH)
+
+# ---------- SET TARGET COLUMN MANUALLY ----------
+# 🔴 CHANGE THIS IF YOUR COLUMN NAME IS DIFFERENT
+TARGET_COLUMN = "Target"   # <-- MOST COMMON
+# TARGET_COLUMN = "price"
+# TARGET_COLUMN = "HousePrice"
+
+if TARGET_COLUMN not in df.columns:
+	st.error(f"❌ Target column '{TARGET_COLUMN}' not found in dataset")
+	st.stop()
+
+# ---------- Train Model ----------
+@st.cache_resource
+def train_model(data):
+	X = data.drop(TARGET_COLUMN, axis=1)
+	y = data[TARGET_COLUMN]
+
+	model = RandomForestRegressor(
+		n_estimators=150,
+		random_state=42,
+		n_jobs=-1
+	)
+	model.fit(X, y)
+	return model, X.columns
+
+model, feature_cols = train_model(df)
+
+# ---------- UI ----------
+st.title("🏡 House Price Prediction")
+st.write("Predict house prices using a Random Forest model.")
 st.markdown("---")
-
-# ---- input form ----
-st.header("Enter House Features")
 
 col1, col2 = st.columns(2)
 
 with col1:
-	MedInc = st.number_input("Median Income", min_value=0.0, value=3.5)
-	HouseAge = st.number_input("House Age", min_value=0.0, value=20.0)
-	AveRooms = st.number_input("Average Rooms", min_value=0.0, value=5.0)
-	AveBedrms = st.number_input("Average Bedrooms", min_value=0.0, value=1.0)
+	MedInc = st.number_input("Median Income", 0.0, 20.0, 3.5)
+	HouseAge = st.number_input("House Age", 0.0, 100.0, 20.0)
+	AveRooms = st.number_input("Average Rooms", 0.0, 20.0, 5.0)
+	AveBedrms = st.number_input("Average Bedrooms", 0.0, 10.0, 1.0)
 
 with col2:
-	Population = st.number_input("Population", min_value=0.0, value=1000.0)
-	AveOccup = st.number_input("Average Occupancy", min_value=0.0, value=3.0)
-	Latitude = st.number_input("Latitude", min_value=30.0, value=34.0)
-	Longitude = st.number_input("Longitude", min_value=-130.0, value=-118.0)
+	Population = st.number_input("Population", 0.0, 50000.0, 1000.0)
+	AveOccup = st.number_input("Average Occupancy", 0.0, 10.0, 3.0)
+	Latitude = st.number_input("Latitude", 30.0, 45.0, 34.0)
+	Longitude = st.number_input("Longitude", -130.0, -110.0, -118.0)
 
-st.markdown("---")
-
-# ---- prediction ----
+# ---------- Prediction ----------
 if st.button("🔍 Predict House Price"):
-	with st.spinner("Predicting... Please wait ⏳"):
+	with st.spinner("Predicting..."):
 		time.sleep(1)
-		input_data = np.array([[MedInc, HouseAge, AveRooms, AveBedrms, Population, AveOccup, Latitude, Longitude]])
-		prediction = model.predict(input_data)
-		st.success(f"🏠 **Predicted House Price:** ${prediction[0]*100000:.2f}")
 
-# ---- footer ----
+		input_data = pd.DataFrame([[
+			MedInc, HouseAge, AveRooms, AveBedrms,
+			Population, AveOccup, Latitude, Longitude
+		]], columns=feature_cols)
+
+		pred = model.predict(input_data)[0]
+		st.success(f"🏠 Estimated Price: **${pred * 100000:,.2f}**")
+
+# ---------- Footer ----------
 st.markdown("---")
 st.markdown(
-	"""
-	<div style='text-align: center; color: #1d4ed8; font-weight: 600; font-size: 16px;'>
-<<<<<<< HEAD
-	Developed by  <b>Habib-ur-Rehman</b> 
-=======
-	Developed by 💙 <b>Habib-ur-Rehman</b> 
->>>>>>> 944ab571640d66df8ccb8424fc89e4b19a36263c
-	</div>
-	""",
+	"<div style='text-align:center; font-weight:600;'>Developed by 💙 Habib-ur-Rehman</div>",
 	unsafe_allow_html=True
 )
